@@ -5,20 +5,17 @@ Extension Pack is a huge collection of custom game objects for SMBX2. It include
 Content
 --------------
 SMB1:
-* Balance Platforms
+* ---
 
 SMB2:
-* Clawgrip
-* Robirdo
+* ---
 
 SMB3:
-* SMA4 Bomb
+* ---
 
 SMW:
-* Wings
-
+* ---
 Misc:
-* F.L.U.D.D
 * Broozer
 * Broozer (Old)
 * YI's Arrow Lift
@@ -26,6 +23,4 @@ Misc:
 * Whomp
 
 Original:
-* Honey Block (+ Semisolid Variant)
-* Jelly Block (+ Semisolid Variant)
-* Dirt Block (+ Semisolid Variant)
+* ---
