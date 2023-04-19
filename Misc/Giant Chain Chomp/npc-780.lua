@@ -30,115 +30,48 @@ function npc.onInitAPI()
 	registerEvent(npc, 'onPostNPCKill')
 end
 
-local function drawNPC(npcobject, args)
-    args = args or {}
-    if npcobject.__type ~= "NPC" then
-        error("Must pass a NPC object to draw. Example: drawNPC(myNPC)")
-    end
-    local frame = args.frame or npcobject.animationFrame
-
-    local afs = args.applyFrameStyle
-    if afs == nil then afs = true end
-
-    local cfg = NPC.config[npcobject.id]
-    
-    --gfxwidth/gfxheight can be unreliable
-    local trueWidth = cfg.gfxwidth
-    if trueWidth == 0 then trueWidth = npcobject.width end
-
-    local trueHeight = cfg.gfxheight
-    if trueHeight == 0 then trueHeight = npcobject.height end
-
-    --drawing position isn't always exactly hitbox position
-    local x = npcobject.x + 0.5 * npcobject.width - 0.5 * trueWidth + cfg.gfxoffsetx + (args.xOffset or 0)
-    local y = npcobject.y + npcobject.height - trueHeight + cfg.gfxoffsety + (args.yOffset or 0)
-
-    --cutting off our sprite might be nice for piranha plants and the likes
-    local w = args.width or trueWidth
-    local h = args.height or trueHeight
-
-    local o = args.opacity or 1
-
-    --the bane of the checklist's existence
-    local p = args.priority or -45
-    if cfg.foreground then
-        p = -15
-    end
-	
-	local direction = args.direction or npcobject.direction
-    local sourceX = args.sourceX or 0
-    local sourceY = args.sourceY or 0
-
-    --framestyle is a weird thing...
-
-    local frames = args.frames or cfg.frames
-    local f = frame or 0
-    --but only if we actually pass a custom frame...
-    if args.frame and afs and cfg.framestyle > 0 then
-        if cfg.framestyle == 2 then
-            if npcobject:mem(0x12C, FIELD_WORD) > 0 or npcobject:mem(0x132, FIELD_WORD) > 0 then
-                f = f + 2 * frames
-            end
-        end
-        if direction == 1 then
-            f = f + frames
-        end
-    end
-
-	local texture = args.texture or Graphics.sprites.npc[npcobject.id].img
-	
-    Graphics.drawBox{
-		texture = texture, 
-		
-		x = x + -((args.texwidth) or 0), 
-		y = y, 
-		
-		width = args.texwidth or texture.width,
-		sourceX = sourceX, 
-		sourceY = sourceY + trueHeight * f, 
-		sourceWidth = w, 
-		sourceHeight = h, 
-		
-		color = Color.white .. o, 
-		priority = p,
-		sceneCoords = true,
-	}
-end
+local drawNPC = npcutils.drawNPC
 
 local CHASE = 0
 local DIE = 1
 
-local function drawEye(v, width)
+local function is_framestyle2(v)
+	return (v:mem(0x12C, FIELD_WORD) > 0 or v:mem(0x136, FIELD_BOOL))
+end
+
+local function drawEye(v, sourceX)
 	local config = NPC.config[v.id]
 	local data = v.data._basegame
 	
 	drawNPC(v, {
 		frame = config.frames,
-		direction = -1,
-		texwidth = width
+		sourceX = sourceX,
+		applyFrameStyle = false,
 	})	
 	
 	--tear
 	drawNPC(v, {
 		frame = config.frames + 1,
 		yOffset = data.tearOffset,
-		direction = -1,
-		texwidth = width
+		sourceX = sourceX,
+		applyFrameStyle = false,
 	})	
 	
 	--eye
 	drawNPC(v, {
 		frame = config.frames + 2,
-		direction = -1,
-		texwidth = width
+		sourceX = sourceX,
+		applyFrameStyle = false,
 	})	
 end
 
 function npc.onPostNPCKill(v, r)
-	if v.id ~= id and r ~= 9 then return end
+	if v.id ~= id then return end
 	
-	local e = Effect.spawn(764, v.x, v.y)
-	e.direction = v.direction
+	if r ~= 9 then
+		local e = Effect.spawn(764, v.x, v.y)
+		e.direction = v.direction
+	end
 end
 
 local floor = math.floor
@@ -150,37 +83,25 @@ function npc.onCameraDrawNPC(v)
 	local texture = Graphics.sprites.npc[id].img
 
 	local frame = v.animationFrame
+	local sourceX = (v.direction == 1 and config.gfxwidth) or 0
 	
 	if config.framestyle > 0 and v.direction == 1 then
 		frame = v.animationFrame - config.frames
 	end
 	
-	if config.framestyle == 2 and v:mem(0x12C, FIELD_WORD) > 0 then
+	if config.framestyle == 2 and is_framestyle2(v) then
 		frame = v.animationFrame - (config.frames * 2)
+		sourceX = sourceX + (config.gfxwidth * 2)
 	end
 	
 	if config.framestyle > 0 and v.ai1 == CHASE then
-		if v.direction == -1 then
-			drawNPC(v, {
-				frame = frame,
-				texwidth = -texture.width,
-			})
-		else
-			drawNPC(v, {
-				frame = frame,
-				direction = -1,
-			})	
-		end
+		drawNPC(v, {
+			frame = frame,
+			sourceX = sourceX,
+			applyFrameStyle = false,
+		})
 	elseif v.ai1 == DIE then
-		if config.framestyle > 0 then
-			if v.direction == -1 then
-				drawEye(v, -texture.width)
-			else
-				drawEye(v)
-			end
-		else
-			drawEye(v)
-		end
+		drawEye(v, sourceX)
 	end
 	
 	npcutils.hideNPC(v)
@@ -205,14 +126,11 @@ end
 function npc.onTickEndNPC(v)
 	if Defines.levelFreeze then return end
 	
-	if v:mem(0x12C, FIELD_WORD) > 0    --Grabbed
-	or v:mem(0x136, FIELD_BOOL)        --Thrown
-	or v:mem(0x138, FIELD_WORD) > 0    --Contained within
-	then
-		return
-	end
+	local data = v.data._basegame
 	
-	if v.despawnTimer == 0 then
+	if not data.spawned and v.despawnTimer > 0 then
+		data.spawned = true
+	elseif data.spawned and v.despawnTimer <= 0 then
 		local despawn = true
 		
 		for k,p in ipairs(Player.get()) do
@@ -222,16 +140,14 @@ function npc.onTickEndNPC(v)
 			end
 		end
 		
-		if despawn then
-			return v:kill(9)
+		if not despawn then
+			v.despawnTimer = 180
+		else
+			data.spawned = nil
 		end
-		
-		v.despawnTimer = 180
 	end
 
 	v.animationTimer = v.animationTimer + math.abs(v.speedX * 0.16)
-	
-	local data = v.data._basegame
 	
 	if not data.blockId then
 		data.blockId = v.ai2
@@ -289,7 +205,7 @@ function npc.onTickEndNPC(v)
 			data.dieTimer = data.dieTimer + 1
 			
 			if data.dieTimer > 64 then
-				v:kill(9)
+				v:kill(3)
 				SFX.play('falling_chomp.wav')		
 			end
 		end
