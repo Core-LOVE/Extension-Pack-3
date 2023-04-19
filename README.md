@@ -19,6 +19,11 @@ SMW:
 
 Misc:
 * F.L.U.D.D
+* Broozer
+* Broozer (Old)
+* YI's Arrow Lift
+* Giant Chain Chomp
+* Whomp
 
 Original:
 * Honey Block (+ Semisolid Variant)

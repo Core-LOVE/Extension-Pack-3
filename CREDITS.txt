@@ -1,2 +1,3 @@
 Thanks to:
-Emral (for fixing Clawgrip and Twister)
+Emral (for fixing Clawgrip (+ rock) and Twister)
+MegaDood (for fixing Pidgit and Arrow Lift)
